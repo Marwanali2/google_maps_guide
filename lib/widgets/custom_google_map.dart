@@ -1,5 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_guide/models/places_model.dart';
+import 'dart:ui' as ui;
 
 class CustomGoogleMap extends StatefulWidget {
   const CustomGoogleMap({super.key});
@@ -11,6 +16,7 @@ class CustomGoogleMap extends StatefulWidget {
 class _CustomGoogleMapState extends State<CustomGoogleMap> {
   late CameraPosition initialCameraPosition;
   late GoogleMapController googleMapController;
+  Set<Marker> markers = {};
   @override
   void initState() {
     initialCameraPosition = const CameraPosition(
@@ -18,9 +24,9 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
         30.78357146997099,
         30.982883674356408,
       ),
-      zoom: 16,
+      zoom: 15,
     );
-
+    initMarkers();
     super.initState();
   }
 
@@ -34,6 +40,7 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   Widget build(BuildContext context) {
     return Stack(children: [
       GoogleMap(
+        zoomControlsEnabled: false,
         initialCameraPosition: initialCameraPosition,
         onMapCreated: (controller) {
           googleMapController = controller;
@@ -52,6 +59,7 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
             ),
           ),
         ), */
+        markers: markers,
       ),
       Positioned(
         bottom: 16,
@@ -79,11 +87,55 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   void initMapStyle() async {
     googleMapController = googleMapController;
     var strangerThingMapStyle = await DefaultAssetBundle.of(context).loadString(
-      'assets/map_styles/Stranger_Thing_map_style.json',
+      'assets/map_styles/dark_theme_map_style.json',
     ); // بتعمل لوود للأسيت بحيث يرجع كإسترنج عشان ابعته لميثود ال سيتماب استايل
     googleMapController.setMapStyle(strangerThingMapStyle);
   }
+
+// بستخدم الميثود دي في حالو لو عندي صورة عايز اتحكم في حجمها
+  Future<Uint8List> getImageFromRawData(String image, double width) async {
+    var imageData = await rootBundle.load(image);
+    var imageCodec = await ui.instantiateImageCodec(
+      imageData.buffer.asUint8List(),
+      targetWidth: width.round(),
+    ); // عشان اتحكم في الصورة و ابعادها
+    var imageFrameInfo =
+        await imageCodec.getNextFrame(); //معلومات الصورة بتاعتنا
+    var imageByteData =
+        await imageFrameInfo.image.toByteData(format: ui.ImageByteFormat.png);
+    return imageByteData!.buffer.asUint8List();
+  }
+
+  void initMarkers() async {
+    // BitmapDescriptor.fromBytes()
+    var customMarker = await BitmapDescriptor.fromAssetImage(
+        const ImageConfiguration(),
+        "assets/images/mod-google-maps.png"); //دي صورة حجمها نازل مظبوط فانا مش محتاج الميثود خلاص
+    /*BitmapDescriptor.fromBytes( // بستخدم الميثود دي في حالو لو عندي صورة عايز اتحكم في حجمها
+      await getImageFromRawData(
+        "assets/images/google-maps.png",
+        100,
+      ),
+    ); */
+    var myMarkers = placesList
+        .map(
+          (placeModel) => Marker(
+            icon: customMarker,
+            markerId: MarkerId(
+              placeModel.id.toString(),
+            ),
+            position: placeModel.latLng,
+            infoWindow: InfoWindow(
+              title: placeModel.name,
+            ),
+          ),
+        )
+        .toSet();
+    markers.addAll(myMarkers);
+    setState(() {});
+  }
 }
+
 // zoom properties
 // world view 0 => 3
 // country view 4 => 6
