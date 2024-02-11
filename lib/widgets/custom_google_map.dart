@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -17,6 +15,9 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   late CameraPosition initialCameraPosition;
   late GoogleMapController googleMapController;
   Set<Marker> markers = {};
+  Set<Polyline> polylines = {};
+  Set<Polygon> polygons = {};
+  Set<Circle> circles = {};
   @override
   void initState() {
     initialCameraPosition = const CameraPosition(
@@ -27,6 +28,9 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       zoom: 15,
     );
     initMarkers();
+    initPolylines();
+    initPolygons();
+    initCircles();
     super.initState();
   }
 
@@ -40,7 +44,9 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   Widget build(BuildContext context) {
     return Stack(children: [
       GoogleMap(
-        zoomControlsEnabled: false,
+        polylines: polylines,
+        polygons: polygons,
+        circles: circles,
         initialCameraPosition: initialCameraPosition,
         onMapCreated: (controller) {
           googleMapController = controller;
@@ -133,6 +139,106 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
         .toSet();
     markers.addAll(myMarkers);
     setState(() {});
+  }
+
+  void initPolylines() {
+    /* Polyline polyline = Polyline(
+        polylineId: const PolylineId(
+          '1',
+        ),
+        color: Colors.amber,
+        width: 5,
+        zIndex: 2,
+        geodesic: true,
+        patterns: [PatternItem.dot, PatternItem.dash(2), PatternItem.gap(3)],
+        startCap: Cap.roundCap,
+        points: const [
+          LatLng(
+            30.791158710184114,
+            30.980545478109143,
+          ),
+          LatLng(
+            30.79096414272318,
+            30.986286700525568,
+          ),
+          LatLng(
+            30.79096414272318,
+            30.986286700525568,
+          ),
+          LatLng(
+            30.816368038782773,
+            30.993124024911737,
+          ),
+        ]);
+    Polyline polyline2 = const Polyline(
+        polylineId: PolylineId(
+          '1',
+        ),
+        color: Colors.white,
+        width: 5,
+        zIndex: 1,
+        startCap: Cap.roundCap,
+        points: [
+          LatLng(
+            30.78357146997099,
+            30.982883674356408,
+          ),
+          LatLng(
+            30.816368038782773,
+            30.993124024911737,
+          ),
+        ]);
+    polylines.addAll({polyline, polyline2}); */
+  }
+
+  void initPolygons() {
+    /*
+    Polygon polygon = Polygon(
+      polygonId: const PolygonId(
+        '1',
+      ),
+      fillColor: Colors.red.withOpacity(0.5),
+      strokeColor: Colors.red.withOpacity(0.8),
+      strokeWidth: 5,
+      
+      points: const [
+        LatLng(
+          30.791158710184114,
+          30.980545478109143,
+        ),
+        LatLng(
+          30.79096414272318,
+          30.986286700525568,
+        ),
+        LatLng(
+          30.79096414272318,
+          30.986286700525568,
+        ),
+        LatLng(
+          30.816368038782773,
+          30.993124024911737,
+        ),
+      ],
+    );
+    polygons.addAll({polygon});
+  */
+  }
+
+  void initCircles() {
+    Circle dahabServiceircle = Circle(
+      circleId: const CircleId(
+        '1',
+      ),
+      center: const LatLng(
+        30.816368038782773,
+        30.993124024911737,
+      ),
+      radius: 1000,
+      fillColor: Colors.green.withOpacity(0.5),
+      strokeColor: Colors.black.withOpacity(0.5),
+      strokeWidth: 5,
+    );
+    circles.add(dahabServiceircle);
   }
 }
 
