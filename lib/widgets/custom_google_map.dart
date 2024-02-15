@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:google_maps_guide/models/places_model.dart';
-import 'dart:ui' as ui;
+import 'package:google_maps_guide/utils/location_service.dart';
+import 'package:location/location.dart';
 
 class CustomGoogleMap extends StatefulWidget {
   const CustomGoogleMap({super.key});
@@ -12,12 +11,12 @@ class CustomGoogleMap extends StatefulWidget {
 }
 
 class _CustomGoogleMapState extends State<CustomGoogleMap> {
+  late LocationService locationService;
   late CameraPosition initialCameraPosition;
-  late GoogleMapController googleMapController;
+  GoogleMapController? googleMapController;
+  late Location location;
   Set<Marker> markers = {};
-  Set<Polyline> polylines = {};
-  Set<Polygon> polygons = {};
-  Set<Circle> circles = {};
+  bool isFirstCall = true;
   @override
   void initState() {
     initialCameraPosition = const CameraPosition(
@@ -27,16 +26,16 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       ),
       zoom: 15,
     );
-    initMarkers();
-    initPolylines();
-    initPolygons();
-    initCircles();
+    locationService = LocationService();
+
+    //checkAndRequestLocationService();
+    updateMyLocation();
     super.initState();
   }
 
   @override
   void dispose() {
-    googleMapController.dispose();
+    googleMapController!.dispose();
     super.dispose();
   }
 
@@ -44,28 +43,12 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   Widget build(BuildContext context) {
     return Stack(children: [
       GoogleMap(
-        polylines: polylines,
-        polygons: polygons,
-        circles: circles,
         initialCameraPosition: initialCameraPosition,
+        markers: markers,
         onMapCreated: (controller) {
           googleMapController = controller;
           initMapStyle();
         },
-        /* cameraTargetBounds: CameraTargetBounds(
-          // حدود الماب اللي اليوزر ميخرجش عنها
-          LatLngBounds(
-            northeast: const LatLng(
-              31.5,
-              29.7,
-            ),
-            southwest: const LatLng(
-              31.3,
-              30.1,
-            ),
-          ),
-        ), */
-        markers: markers,
       ),
       Positioned(
         bottom: 16,
@@ -73,7 +56,7 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
         right: 55,
         child: ElevatedButton(
           onPressed: () {
-            googleMapController.animateCamera(
+            googleMapController!.animateCamera(
               CameraUpdate.newLatLng(
                 const LatLng(
                   30.6,
@@ -92,153 +75,52 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
 
   void initMapStyle() async {
     googleMapController = googleMapController;
-    var strangerThingMapStyle = await DefaultAssetBundle.of(context).loadString(
+    var darkMapStyle = await DefaultAssetBundle.of(context).loadString(
       'assets/map_styles/dark_theme_map_style.json',
     ); // بتعمل لوود للأسيت بحيث يرجع كإسترنج عشان ابعته لميثود ال سيتماب استايل
-    googleMapController.setMapStyle(strangerThingMapStyle);
+    googleMapController!.setMapStyle(darkMapStyle);
   }
 
-// بستخدم الميثود دي في حالو لو عندي صورة عايز اتحكم في حجمها
-  Future<Uint8List> getImageFromRawData(String image, double width) async {
-    var imageData = await rootBundle.load(image);
-    var imageCodec = await ui.instantiateImageCodec(
-      imageData.buffer.asUint8List(),
-      targetWidth: width.round(),
-    ); // عشان اتحكم في الصورة و ابعادها
-    var imageFrameInfo =
-        await imageCodec.getNextFrame(); //معلومات الصورة بتاعتنا
-    var imageByteData =
-        await imageFrameInfo.image.toByteData(format: ui.ImageByteFormat.png);
-    return imageByteData!.buffer.asUint8List();
+  void updateMyLocation() async {
+    await locationService.checkAndRequestLocationService();
+    var hasPermission =
+        await locationService.checkAndRequestLocationPermission();
+    if (hasPermission) {
+      locationService.getLocationData((locationData) {
+        setMyMarker(locationData);
+        setMyCameraPosition(locationData);
+      });
+    } else {}
   }
 
-  void initMarkers() async {
-    // BitmapDescriptor.fromBytes()
-    var customMarker = await BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(),
-        "assets/images/mod-google-maps.png"); //دي صورة حجمها نازل مظبوط فانا مش محتاج الميثود خلاص
-    /*BitmapDescriptor.fromBytes( // بستخدم الميثود دي في حالو لو عندي صورة عايز اتحكم في حجمها
-      await getImageFromRawData(
-        "assets/images/google-maps.png",
-        100,
+  void setMyCameraPosition(LocationData locationData) {
+    CameraPosition cameraPosition = CameraPosition(
+      target: LatLng(locationData.latitude!, locationData.longitude!),
+      zoom: 17,
+    );
+    if (isFirstCall) {
+      googleMapController?.animateCamera(
+        CameraUpdate.newCameraPosition(cameraPosition),
+      );
+      isFirstCall = false;
+    } else {
+      googleMapController?.animateCamera(
+        CameraUpdate.newLatLng(
+          LatLng(locationData.latitude!, locationData.longitude!),
+        ),
+      );
+    }
+  }
+
+  void setMyMarker(LocationData locationData) {
+    Marker myMarker = Marker(
+      markerId: const MarkerId(
+        'my location marker',
       ),
-    ); */
-    var myMarkers = placesList
-        .map(
-          (placeModel) => Marker(
-            icon: customMarker,
-            markerId: MarkerId(
-              placeModel.id.toString(),
-            ),
-            position: placeModel.latLng,
-            infoWindow: InfoWindow(
-              title: placeModel.name,
-            ),
-          ),
-        )
-        .toSet();
-    markers.addAll(myMarkers);
+      position: LatLng(locationData.latitude!, locationData.longitude!),
+    );
+    markers.add(myMarker);
     setState(() {});
-  }
-
-  void initPolylines() {
-    /* Polyline polyline = Polyline(
-        polylineId: const PolylineId(
-          '1',
-        ),
-        color: Colors.amber,
-        width: 5,
-        zIndex: 2,
-        geodesic: true,
-        patterns: [PatternItem.dot, PatternItem.dash(2), PatternItem.gap(3)],
-        startCap: Cap.roundCap,
-        points: const [
-          LatLng(
-            30.791158710184114,
-            30.980545478109143,
-          ),
-          LatLng(
-            30.79096414272318,
-            30.986286700525568,
-          ),
-          LatLng(
-            30.79096414272318,
-            30.986286700525568,
-          ),
-          LatLng(
-            30.816368038782773,
-            30.993124024911737,
-          ),
-        ]);
-    Polyline polyline2 = const Polyline(
-        polylineId: PolylineId(
-          '1',
-        ),
-        color: Colors.white,
-        width: 5,
-        zIndex: 1,
-        startCap: Cap.roundCap,
-        points: [
-          LatLng(
-            30.78357146997099,
-            30.982883674356408,
-          ),
-          LatLng(
-            30.816368038782773,
-            30.993124024911737,
-          ),
-        ]);
-    polylines.addAll({polyline, polyline2}); */
-  }
-
-  void initPolygons() {
-    /*
-    Polygon polygon = Polygon(
-      polygonId: const PolygonId(
-        '1',
-      ),
-      fillColor: Colors.red.withOpacity(0.5),
-      strokeColor: Colors.red.withOpacity(0.8),
-      strokeWidth: 5,
-      
-      points: const [
-        LatLng(
-          30.791158710184114,
-          30.980545478109143,
-        ),
-        LatLng(
-          30.79096414272318,
-          30.986286700525568,
-        ),
-        LatLng(
-          30.79096414272318,
-          30.986286700525568,
-        ),
-        LatLng(
-          30.816368038782773,
-          30.993124024911737,
-        ),
-      ],
-    );
-    polygons.addAll({polygon});
-  */
-  }
-
-  void initCircles() {
-    Circle dahabServiceircle = Circle(
-      circleId: const CircleId(
-        '1',
-      ),
-      center: const LatLng(
-        30.816368038782773,
-        30.993124024911737,
-      ),
-      radius: 1000,
-      fillColor: Colors.green.withOpacity(0.5),
-      strokeColor: Colors.black.withOpacity(0.5),
-      strokeWidth: 5,
-    );
-    circles.add(dahabServiceircle);
   }
 }
 
