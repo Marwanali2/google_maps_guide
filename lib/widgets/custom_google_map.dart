@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_guide/utils/location_service.dart';
-import 'package:location/location.dart';
 
 class CustomGoogleMap extends StatefulWidget {
   const CustomGoogleMap({super.key});
@@ -11,12 +10,10 @@ class CustomGoogleMap extends StatefulWidget {
 }
 
 class _CustomGoogleMapState extends State<CustomGoogleMap> {
-  late LocationService locationService;
   late CameraPosition initialCameraPosition;
-  GoogleMapController? googleMapController;
-  late Location location;
+  late LocationService locationService;
+  late GoogleMapController googleMapController;
   Set<Marker> markers = {};
-  bool isFirstCall = true;
   @override
   void initState() {
     initialCameraPosition = const CameraPosition(
@@ -28,99 +25,49 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     );
     locationService = LocationService();
 
-    //checkAndRequestLocationService();
-    updateMyLocation();
     super.initState();
   }
 
   @override
   void dispose() {
-    googleMapController!.dispose();
+    googleMapController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(children: [
-      GoogleMap(
-        initialCameraPosition: initialCameraPosition,
-        markers: markers,
-        onMapCreated: (controller) {
-          googleMapController = controller;
-          initMapStyle();
-        },
-      ),
-      Positioned(
-        bottom: 16,
-        left: 55,
-        right: 55,
-        child: ElevatedButton(
-          onPressed: () {
-            googleMapController!.animateCamera(
-              CameraUpdate.newLatLng(
-                const LatLng(
-                  30.6,
-                  30.1,
-                ),
-              ),
-            );
-          },
-          child: const Text(
-            'Change Location',
-          ),
-        ),
-      )
-    ]);
-  }
-
-  void initMapStyle() async {
-    googleMapController = googleMapController;
-    var darkMapStyle = await DefaultAssetBundle.of(context).loadString(
-      'assets/map_styles/dark_theme_map_style.json',
-    ); // بتعمل لوود للأسيت بحيث يرجع كإسترنج عشان ابعته لميثود ال سيتماب استايل
-    googleMapController!.setMapStyle(darkMapStyle);
-  }
-
-  void updateMyLocation() async {
-    await locationService.checkAndRequestLocationService();
-    var hasPermission =
-        await locationService.checkAndRequestLocationPermission();
-    if (hasPermission) {
-      locationService.getLocationData((locationData) {
-        setMyMarker(locationData);
-        setMyCameraPosition(locationData);
-      });
-    } else {}
-  }
-
-  void setMyCameraPosition(LocationData locationData) {
-    CameraPosition cameraPosition = CameraPosition(
-      target: LatLng(locationData.latitude!, locationData.longitude!),
-      zoom: 17,
+    return GoogleMap(
+      zoomControlsEnabled: true,
+      markers: markers,
+      initialCameraPosition: initialCameraPosition,
+      onMapCreated: (controller) {
+        googleMapController = controller;
+        updateCurrentLocation();
+      },
     );
-    if (isFirstCall) {
-      googleMapController?.animateCamera(
-        CameraUpdate.newCameraPosition(cameraPosition),
-      );
-      isFirstCall = false;
-    } else {
-      googleMapController?.animateCamera(
-        CameraUpdate.newLatLng(
-          LatLng(locationData.latitude!, locationData.longitude!),
+  }
+
+  void updateCurrentLocation() async {
+    try {
+      var locationData = await locationService.getUserLocation();
+      LatLng currentPosition =
+          LatLng(locationData.latitude!, locationData.longitude!);
+      CameraPosition cameraPosition =
+          CameraPosition(target: currentPosition, zoom: 16);
+      googleMapController.animateCamera(
+        CameraUpdate.newCameraPosition(
+          cameraPosition,
         ),
       );
-    }
-  }
-
-  void setMyMarker(LocationData locationData) {
-    Marker myMarker = Marker(
-      markerId: const MarkerId(
-        'my location marker',
-      ),
-      position: LatLng(locationData.latitude!, locationData.longitude!),
-    );
-    markers.add(myMarker);
-    setState(() {});
+      Marker currentocationMarker = Marker(
+        markerId: MarkerId('current location marker'),
+        position: currentPosition,
+      );
+      markers.add(currentocationMarker);
+      setState(() {});
+    } on LocationServiceExecption catch (e) {
+    } on LocationPermissionExecption catch (e) {
+    } catch (e) {}
   }
 }
 
